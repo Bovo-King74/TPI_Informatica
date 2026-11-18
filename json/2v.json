@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "titolo": "Nebula Run",
+    "genere": "azione",
+    "piattaforme": ["PC", "PS5"],
+    "anno": 2023,
+    "prezzo": 39.99,
+    "voto": 8.7,
+    "disponibile": true
+  },
+  {
+    "id": 2,
+    "titolo": "Pixel Farm",
+    "genere": "simulazione",
+    "piattaforme": ["PC", "Switch"],
+    "anno": 2021,
+    "prezzo": 19.99,
+    "voto": 8.1,
+    "disponibile": false
+  }
+]

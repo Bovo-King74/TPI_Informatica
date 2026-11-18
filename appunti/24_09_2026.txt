@@ -1,0 +1,50 @@
+https://www.json.org/json-en.html
+
+json (java script object notation)
+
+object --> struttura ricorsiva
+array --> struttura iterattiva
+
+automa, memoria di annidamento (in caso di bivi), conclude con la fine
+
+ESEMPIO DI SCHEMA:
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/product.schema.json",
+  "title": "Product",
+  "description": "A product from Acme's catalog",
+  "type": "object",
+  "properties": {
+    "productId": {
+      "description": "The unique identifier for a product",
+      "type": "integer"
+    },
+    "productName": {
+      "description": "Name of the product",
+      "type": "string"
+    },
+    "price": {
+      "description": "The price of the product",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "tags": {
+      "description": "Tags for the product",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+    }
+      "uniqueItems": true
+  },
+  "required": [ "productId", "productName", "price" ]
+}
+
+https://json-schema.org/learn/getting-started-step-by-step
+IDENTIFICATORE DI SCHEMI JSON:
+https://www.jsonschemavalidator.net/
+
+"additionalProperties": false --> permette di non ammettere altre chiavi:valore oltre a quelle elencate nello schema
+
+esercizio: creare un metaschema per uno schema di quelli usati precedentemente
