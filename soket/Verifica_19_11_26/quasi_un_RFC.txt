@@ -1,0 +1,189 @@
+Protocollo di gioco su TCP
+
+Questo documento descrive il protocollo applicativo implementato dal server messo in linea.
+
+1. Introduzione
+
+Il protocollo consente a un client di ricevere una parola dal server, inviare
+il testo digitato oppure richiedere le statistiche della sessione. La
+comunicazione avviene mediante righe di testo su una connessione TCP.
+
+2. Trasporto e codifica
+
+Il protocollo usa TCP su IPv4
+Il server ascolta sulla porta 5000 e si associa all'indirizzo 0.0.0.0
+Il client tenta la connessione all'ip del server sulla porta 5000
+
+I messaggi sono codificati in UTF-8 e terminati dal carattere SIMBOLO-TERMINATORE (aka \n).
+ TCP è un flusso di byte e non conserva i confini dei messaggi; 
+ solo il terminatore SIMBOLO-TERMINATORE delimita i messaggi applicativi.
+
+I campi di un messaggio sono separati dal carattere verticale "|". Non è definito un meccanismo
+di escaping; pertanto il carattere "|" DEVE NON comparire nei campi.
+
+3. Sintassi
+
+La grammatica seguente descrive i messaggi del protocollo. SIMBOLO-TERMINATORE indica il
+terminatore di riga.
+
+    un messaggio può assumere queste forme:
+    
+    se inviato dal server: 
+    
+        "WORD" "|" id-proposta "|" word SIMBOLO-TERMINATORE
+
+        "RESULT" "|" id-proposta "|" correct
+                        "|" tempo_impiegato_ms SIMBOLO-TERMINATORE
+
+        "STATS_RESULT" "|" count "|" chars
+                              "|" correct-count "|" correct-ratio
+                              "|" avg-chars "|" avg-cps "|" min-cps
+                              "|" max-cps SIMBOLO-TERMINATORE
+
+        "ERROR" "|" error-text SIMBOLO-TERMINATORE
+    
+    se inviato dal client: 
+        "PLAY" "|" id-proposta "|" tempo_impiegato_ms "|" parola_digitata SIMBOLO-TERMINATORE
+
+        "STATS" SIMBOLO-TERMINATORE
+
+        "QUIT" SIMBOLO-TERMINATORE
+
+
+I campi numerici sono rappresentazioni testuali di valori numerici. Il campo
+correct vale "1" per una risposta corretta e "0" per una risposta errata.
+
+4. Messaggi
+
+4.1. WORD
+
+WORD è inviato dal server al client e ha la forma:
+
+    WORD|id-proposta|word
+
+- id-proposta identifica la proposta corrente. word è la parola da digitare,
+scelta dal server da un elenco configurato localmente.
+
+4.2. PLAY
+
+PLAY è inviato dal client al server e ha la forma:
+
+    PLAY|id-proposta|tempo_impiegato_ms|parola_digitata
+
+- id-proposta identifica la proposta a cui si riferisce il tentativo. 
+- tempo_impiegato_ms è il tempo, in millisecondi, misurato dal client 
+tra la visualizzazione della proposta e il completamento dell'input. 
+- parola_digitata è il testo inserito dall'utente.
+
+4.3. STATS
+
+STATS è inviato dal client al server per richiedere le statistiche della
+sessione:
+
+    STATS
+
+4.4. QUIT
+
+QUIT è inviato dal client al server per terminare la sessione:
+
+    QUIT
+
+Il server non invia una risposta applicativa a QUIT e interrompe la gestione
+della connessione.
+
+4.5. RESULT
+
+RESULT è inviato dal server dopo un PLAY valido e ha la forma:
+
+    RESULT|id-proposta|correct|tempo_impiegato_ms
+
+correct vale "1" se parola_digitata coincide esattamente con la parola proposta,
+altrimenti vale "0". tempo_impiegato_ms è il tempo ricevuto dal client.
+
+4.6. STATS_RESULT
+
+STATS_RESULT è inviato dal server in risposta a STATS e contiene, nell'ordine,
+i campi seguenti:
+
+    STATS_RESULT|count|chars|correct-count|correct-ratio|avg-chars|avg-cps
+                |min-cps|max-cps
+
+count è il numero di tentativi registrati. 
+chars è il numero complessivo di caratteri digitati.
+correct-count è il numero di tentativi corretti.
+correct-ratio è il rapporto tra tentativi corretti e tentativi totali.
+avg-chars è la media di caratteri per tentativo. 
+avg-cps è la velocità media,
+in caratteri al secondo, sulle parole inviate corrette.
+min-cps e max-cps sono le velocità minima e massima tra le prove.
+
+Se non è disponibile alcuna velocità, min-cps e max-cps valgono "-"; 
+avg-cps vale "0.00".
+Se non vi sono tentativi, correct-ratio e avg-chars valgono rispettivamente 
+"0.0000" e "0.00".
+
+4.7. ERROR
+
+ERROR è inviato dal server quando riceve un comando o un formato non valido,
+oppure quando i campi di PLAY non superano la validazione. Ha la forma:
+
+    ERROR|error-text
+
+Dopo aver inviato ERROR, il server termina la gestione della connessione.
+
+5. Sequenza della sessione
+
+All'apertura della connessione, il server invia una proposta WORD. Il client
+invia quindi uno dei messaggi seguenti:
+
+    PLAY    Invia un tentativo.
+    STATS   Richiede le statistiche.
+    QUIT    Termina la sessione.
+
+Dopo un PLAY valido, il server invia RESULT e successivamente una nuova
+proposta WORD. 
+Dopo STATS, invia STATS_RESULT e successivamente una nuova
+proposta WORD. 
+La sequenza continua fino a QUIT, a un errore o alla chiusura
+della connessione.
+
+Il server assegna ID progressivi a partire da 1. Ogni PLAY o STATS valido
+comporta l'incremento dell'ID e l'invio della proposta successiva. QUIT non
+produce una nuova proposta.
+
+6. Validazione
+
+Il server accetta PLAY solo se il messaggio contiene esattamente quattro
+campi, id-proposta è un intero corrispondente alla proposta corrente,
+tempo_impiegato_ms è maggiore di zero e non supera 3.600.000 millisecondi, e parola_digitata
+non supera 200 caratteri.
+
+Il confronto tra parola_digitata e la parola proposta è esatto: lettere maiuscole,
+minuscole e ogni altro carattere devono coincidere.
+
+Ogni PLAY valido viene registrato nelle statistiche, indipendentemente
+dall'esito. STATS non è conteggiato come tentativo.
+
+Il tempo è misurato dal client; il server non esegue una misura indipendente
+del tempo di digitazione.
+
+7. Comportamento del client
+
+Il client invia STATS quando l'utente immette il comando "/stats". 
+
+Il client invia QUIT quando l'utente immette "/quit".
+
+Negli altri casi invia PLAY con l'ID della proposta corrente, il tempo misurato e il testo digitato.
+
+8. Chiusura ed errori
+
+La chiusura della connessione da parte del server mentre il client attende una
+riga viene trattata dal client come errore di connessione.
+
+Il server termina la sessione dopo un messaggio ERROR o dopo QUIT. Errori di
+socket o di decodifica possono inoltre causare la chiusura della connessione.
+
+Non sono previsti un messaggio di conferma della chiusura, autenticazione,
+negoziazione della versione o recupero da messaggi malformati. Finché la
+connessione resta attiva, l'affidabilità e l'ordinamento dei byte sono forniti
+da TCP.
